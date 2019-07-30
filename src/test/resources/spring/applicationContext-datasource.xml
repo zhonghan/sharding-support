@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd">
+
+    <!-- 阿里 druid数据库连接池 -->
+    <bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource"
+          destroy-method="close">
+        <!-- 数据库基本信息配置 -->
+        <property name="url" value="jdbc:mysql://192.168.5.89:3306/oms?useUnicode=true&amp;characterEncoding=UTF-8&amp;useSSL=false"/>
+        <property name="username" value="oms"/>
+        <property name="password" value="oms"/>
+        <property name="driverClassName" value="com.mysql.jdbc.Driver"/>
+
+        <!-- 最大并发连接数 -->
+        <property name="maxActive" value="20"/>
+        <!-- 初始化连接数量 -->
+        <property name="initialSize" value="5"/>
+        <!-- 配置获取连接等待超时的时间 -->
+        <property name="maxWait" value="10000"/>
+        <!-- 最小空闲连接数 -->
+        <property name="minIdle" value="5"/>
+        <!-- 配置间隔多久才进行一次检测，检测需要关闭的空闲连接，单位是毫秒 -->
+        <property name="timeBetweenEvictionRunsMillis" value="60000"/>
+        <!-- 配置一个连接在池中最小生存的时间，单位是毫秒 -->
+        <property name="minEvictableIdleTimeMillis" value="300000"/>
+        <property name="validationQuery" value="SELECT 'x'"/>
+        <property name="testWhileIdle" value="true"/>
+        <property name="testOnBorrow" value="false"/>
+        <property name="testOnReturn" value="false"/>
+        <property name="maxOpenPreparedStatements" value="20"/>
+        <!-- 打开removeAbandoned功能 -->
+        <property name="removeAbandoned" value="true"/>
+        <!-- 1800秒，也就是30分钟 -->
+        <property name="removeAbandonedTimeout" value="1800"/>
+        <!-- 关闭abanded连接时输出错误日志 -->
+        <property name="logAbandoned" value="true"/>
+    </bean>
+
+    <bean id="sessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="dataSource"/>
+        <property name="configLocation" value="classpath:/mybatis/mybatis-config.xml"/>
+        <property name="mapperLocations"
+                  value="classpath:/mapper/*Mapper.xml"/>
+    </bean>
+
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <property name="basePackage" value="com.karl.framework.sharding.dao"/>
+        <property name="sqlSessionFactoryBeanName" value="sessionFactory"/>
+    </bean>
+
+</beans>

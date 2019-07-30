@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd">
+
+    <bean id="time_range_shard_strategy_config" class="com.karl.framework.sharding.plugin.config.TableShardStrategyConfig">
+        <constructor-arg name="tableNames">
+            <set>
+                <value>oms_orderinfo</value>
+                <value>oms_tio</value>
+            </set>
+        </constructor-arg>
+        <constructor-arg name="strategy" ref="monthArchiveShardStrategy" />
+    </bean>
+
+    <bean id="monthArchiveShardStrategy" class="com.karl.framework.sharding.strategy.ma.MonthArchiveShardStrategy" >
+        <constructor-arg name="keepArchiveTableNum" value="8"></constructor-arg>
+        <constructor-arg name="configTimeDurations">
+            <list>
+                <bean class="com.karl.framework.sharding.strategy.ma.TimeDuration">
+                    <constructor-arg name="fromDate" value="1-1"></constructor-arg>
+                    <constructor-arg name="toDate" value="4-1"></constructor-arg>
+                    <constructor-arg name="suffix" value="1"></constructor-arg>
+                </bean>
+                <bean class="com.karl.framework.sharding.strategy.ma.TimeDuration">
+                    <constructor-arg name="fromDate" value="4-1"></constructor-arg>
+                    <constructor-arg name="toDate" value="7-1"></constructor-arg>
+                    <constructor-arg name="suffix" value="2"></constructor-arg>
+                </bean>
+                <bean class="com.karl.framework.sharding.strategy.ma.TimeDuration">
+                    <constructor-arg name="fromDate" value="7-1"></constructor-arg>
+                    <constructor-arg name="toDate" value="10-1"></constructor-arg>
+                    <constructor-arg name="suffix" value="3"></constructor-arg>
+                </bean>
+                <bean class="com.karl.framework.sharding.strategy.ma.TimeDuration">
+                    <constructor-arg name="fromDate" value="10-1"></constructor-arg>
+                    <constructor-arg name="toDate" value="1-1"></constructor-arg>
+                    <constructor-arg name="suffix" value="4"></constructor-arg>
+                </bean>
+            </list>
+        </constructor-arg>
+    </bean>
+
+    <bean class="com.karl.framework.sharding.plugin.config.ShardPluginConfiguration" >
+        <property name="tableShardStrategyList">
+            <list>
+                <ref bean="time_range_shard_strategy_config" />
+            </list>
+        </property>
+    </bean>
+</beans>

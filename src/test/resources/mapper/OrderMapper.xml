@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.karl.framework.sharding.dao.OrderDao">
+    <resultMap id="orderMap" type="com.karl.framework.sharding.model.Order">
+        <result property="id" column="id"/>
+        <result property="desc" column="desc"/>
+        <result property="address" column="address"/>
+        <result property="creTime" column="cre_time"/>
+    </resultMap>
+
+    <select id="getById"  resultMap="orderMap">
+        SELECT o.id, o.desc, oe.address, o.cre_time FROM oms_orderinfo o left join oms_tio oe on o.id=oe.order_id where o.id = #{id}
+    </select>
+    <select id="getOrderCount"  resultType="java.lang.Integer">
+        SELECT count(1) FROM oms_orderinfo where 1=1
+        <if test="beginDate!=null">
+           and   cre_time >= #{beginDate}
+        </if>
+        <if test="endDate!=null">
+         and <![CDATA[cre_time < #{endDate}]]>
+        </if>
+    </select>
+    <select id="findByCreTime"  resultMap="orderMap">
+        SELECT o.id, o.desc, oe.address, o.cre_time FROM oms_orderinfo o left join oms_tio oe on o.id=oe.order_id
+        where 1=1
+          <if test="startTime!=null">
+          and   cre_time >= #{startTime}
+           </if>
+        <if test="endTime!=null">
+          and <![CDATA[o.cre_time < #{endTime}]]>
+        </if>
+              limit #{startIndex}, #{pageSize}
+    </select>
+    <select id="getOrderCountByMap" parameterType="java.util.Map"  resultType="java.lang.Integer">
+        SELECT count(1) FROM oms_orderinfo where 1=1
+        <if test="beginDate!=null">
+            and   cre_time >= #{beginDate}
+        </if>
+        <if test="endDate!=null">
+            and <![CDATA[cre_time < #{endDate}]]>
+        </if>
+    </select>
+    <select id="findByMap"   resultMap="orderMap">
+        SELECT o.id, o.desc, oe.address, o.cre_time FROM oms_orderinfo o left join oms_tio oe on o.id=oe.order_id
+        where 1=1
+        <if test="map.startTime!=null">
+            and cre_time >= #{map.startTime}
+        </if>
+        <if test="map.endTime!=null">
+            and <![CDATA[o.cre_time < #{map.endTime}]]>
+        </if>
+        limit #{startIndex}, #{pageSize}
+    </select>
+
+    <select id="getByDesc"  resultMap="orderMap">
+        SELECT o.id, o.desc, oe.address, o.cre_time FROM oms_orderinfo o left join oms_tio oe on o.id=oe.order_id where o.desc = #{desc}
+    </select>
+
+
+    <select id="getOrderCountByOrderTimeQuery"  resultType="java.lang.Integer">
+        SELECT count(1) FROM oms_orderinfo where 1=1
+        <if test="query.beginDate!=null">
+            and   cre_time >= #{query.beginDate}
+        </if>
+        <if test="query.endDate!=null">
+            and <![CDATA[cre_time < #{query.endDate}]]>
+        </if>
+    </select>
+
+
+
+    <select id="findByOrderTimeQuery"   resultMap="orderMap">
+        SELECT o.id, o.desc, oe.address, o.cre_time FROM oms_orderinfo o left join oms_tio oe on o.id=oe.order_id
+        where 1=1
+        <if test="query.beginDate!=null">
+            and cre_time >= #{query.beginDate}
+        </if>
+        <if test="query.endDate!=null">
+            and <![CDATA[o.cre_time < #{query.endDate}]]>
+        </if>
+        limit #{startIndex}, #{pageSize}
+    </select>
+
+
+    <select id="getOrders"   resultMap="orderMap">
+        SELECT o.id, o.desc, oe.address, o.cre_time FROM oms_orderinfo o left join oms_tio oe on o.id=oe.order_id
+        where 1=1
+        <if test="beginDate!=null">
+            and cre_time >= #{beginDate}
+        </if>
+        <if test="endDate!=null">
+            and <![CDATA[o.cre_time < #{endDate}]]>
+        </if>
+        limit #{startIndex}, #{pageSize}
+    </select>
+
+    <select id="query"   resultMap="orderMap">
+        SELECT o.id, o.desc, oe.address, o.cre_time FROM oms_orderinfo o left join oms_tio oe on o.id=oe.order_id
+        where 1=1
+        <if test="beginDate!=null">
+            and cre_time >= #{beginDate}
+        </if>
+        <if test="endDate!=null">
+            and <![CDATA[o.cre_time < #{endDate}]]>
+        </if>
+      order by o.cre_time desc
+    </select>
+</mapper>

@@ -1,0 +1,12 @@
+/.settings/
+LOG_HOME_IS_UNDEFINED/
+disconf/
+*.ipr
+*.iws
+.project
+.classpath
+/target/
+/bin/
+*.iml
+/.idea/
+*.bat

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+	全局配置禁止私自修改
+	
+	@author ningyu
+ -->
+<configuration>
+    <!--======================================= 本地变量 ========================================-->
+
+    <!--在没有定义${LOG_HOME}系统变量的时候，可以设置此本地变量。提交测试、上线时，要将其注释掉，使用系统变量。
+    <property name="LOG_HOME" value="${user.home}/data/applogs" />
+    -->
+    <!-- <property name="LOG_HOME" value="D:/peccancyTest/log" /> -->
+    <!-- 应用名称：和统一配置中的项目代码保持一致（小写） -->
+    <property name="APP_NAME" value="account-site"/>
+    <!--日志文件保留天数-->
+    <property name="LOG_MAX_HISTORY" value="30"/>
+    <!--定义日志文件的存储地址 勿在 LogBack 的配置中使用相对路径-->
+    <!--应用日志文件保存路径-->
+    <property name="LOG_APP_HOME" value="${LOG_HOME}/${APP_NAME}/app"/>
+    <!--系统日志文件保存路径-->
+    <property name="LOG_SYS_HOME" value="${LOG_HOME}/${APP_NAME}/sys"/>
+
+    <!--=========================== 按照每天生成日志文件：默认配置===================================-->
+
+    <!-- 控制台输出 -->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <!--定义了一个过滤器,在LEVEL之下的日志输出不会被打印出来-->
+        <!--这里定义了DEBUG，也就是控制台不会输出比ERROR级别小的日志-->
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>DEBUG</level>
+        </filter>
+        <!-- encoder 默认配置为PatternLayoutEncoder -->
+        <!--定义控制台输出格式-->
+        <encoder>
+            <pattern>%d [%thread] %-5level [%file : %line] - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+
+    <!--===============================  日志输出: 默认主业务日志 ======================================-->
+    <root level="info">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>
