@@ -67,4 +67,12 @@ public class DateUtils {
             throw new RuntimeException("date["+dateStr+"] parseDate error", e);
         }
     }
+
+    public static String format(Date date) {
+        if(date == null) {
+            return "";
+        }
+        SimpleDateFormat sdf = new SimpleDateFormat(DATE_TIME_FORMAT);
+        return sdf.format(date);
+    }
 }

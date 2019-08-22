@@ -12,6 +12,8 @@ public class ShardingExecuteThreadFactory implements ThreadFactory {
 
     @Override
     public Thread newThread(Runnable r) {
-        return new Thread(r, THREAD_NAME_PREFIX + threadCount.getAndIncrement());
+        Thread thread = new Thread(r, THREAD_NAME_PREFIX + threadCount.getAndIncrement());
+        thread.setDaemon(true);
+        return thread;
     }
 }

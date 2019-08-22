@@ -6,11 +6,16 @@ import com.karl.framework.sharding.exception.ShardingConfigurationException;
 import com.karl.framework.sharding.plugin.config.ShardPluginConfiguration;
 import com.karl.framework.sharding.plugin.config.TableShardStrategyConfig;
 import com.karl.framework.sharding.plugin.util.ShardingExecuteThreadFactory;
+import com.karl.framework.sharding.strategy.ma.DateType;
 import com.karl.framework.sharding.strategy.ma.TimeRange;
+import com.karl.framework.sharding.strategy.ma.TimeWrapper;
 import com.karl.framework.sharding.strategy.ma.annotation.QueryType;
+import com.karl.framework.sharding.strategy.ma.annotation.TimeShardQuery;
 import com.karl.framework.sharding.strategy.ma.holder.TimeShardingContextHolder;
 import com.karl.framework.sharding.util.ApplicationContextUtils;
+import com.karl.framework.sharding.util.ReflectionUtils;
 
+import org.apache.ibatis.binding.MapperMethod;
 import org.apache.ibatis.cache.CacheKey;
 import org.apache.ibatis.executor.Executor;
 import org.apache.ibatis.mapping.BoundSql;
@@ -24,12 +29,14 @@ import org.apache.ibatis.session.ResultHandler;
 import org.apache.ibatis.session.RowBounds;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
-import java.sql.SQLException;
+import java.lang.reflect.Field;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -180,7 +187,7 @@ public class TimeShardQueryPlugin implements Interceptor {
         ExecutorService executorService = Executors.newFixedThreadPool(threadPoolSize, new ShardingExecuteThreadFactory());
         CompletionService<Object> completionService = new ExecutorCompletionService<>(executorService);
         for (final TimeRange timeRange : timeRangeList) {
-            completionService.submit(new QueryExecute(executor, resultHandler, boundSql, ms,timeRange,parameterObject));
+            completionService.submit(new QueryExecute(executor, resultHandler, boundSql, ms,timeRange,parameterObject, TimeShardingContextHolder.getTimeShardQuery()));
         }
 
         try {
@@ -246,30 +253,47 @@ public class TimeShardQueryPlugin implements Interceptor {
         private MappedStatement ms;
         private TimeRange timeRange;
         private Object parameterObject;
+        private TimeShardQuery timeShardQuery;
 
-        public QueryExecute(Executor executor, ResultHandler resultHandler, BoundSql boundSql, MappedStatement ms, TimeRange timeRange, Object parameterObject) {
+        public QueryExecute(Executor executor, ResultHandler resultHandler, BoundSql boundSql, MappedStatement ms,
+                            TimeRange timeRange, Object parameterObject, TimeShardQuery timeShardQuery) {
             this.executor = executor;
             this.resultHandler = resultHandler;
             this.boundSql = boundSql;
             this.ms = ms;
             this.timeRange = timeRange;
             this.parameterObject = parameterObject;
+            this.timeShardQuery = timeShardQuery;
         }
 
         @Override
         public Object call() {
-            return executeSql(this.executor ,this.resultHandler, this.boundSql, this.timeRange, this.ms, this.parameterObject);
+            try{
+                TimeShardingContextHolder.setTimeShardQuery(timeShardQuery);
+                return executeSql(this.executor ,this.resultHandler, this.boundSql, this.timeRange, this.ms, this.parameterObject);
+            }finally {
+                TimeShardingContextHolder.clear();
+            }
+
         }
     }
 
-    private Object executeSql(Executor executor,ResultHandler resultHandler,BoundSql boundSql, TimeRange timeRange, MappedStatement ms, Object parameterObject) {
+    private Object executeSql(Executor executor,ResultHandler resultHandler,BoundSql boundSql, TimeRange timeRange, MappedStatement ms, Object paramObject) {
         try {
             String sql = getSql(boundSql.getSql(), timeRange);
             logger.info("MySharding:suffix:[{}], sql:{}", timeRange.getTableSuffix(), sql);
             if(logger.isDebugEnabled()) {
                 logger.debug("sharding-support begin execute sql:{}", sql);
             }
+            final Object parameterObject = cloneParameterObject(paramObject);
+            rewriteParameterObject(parameterObject, TimeShardingContextHolder.getTimeShardQuery(), timeRange);
+            Field additionalParametersField = BoundSql.class.getDeclaredField("additionalParameters");
+            additionalParametersField.setAccessible(true);
+            Map<String, Object> additionalParameters = (Map<String, Object>) additionalParametersField.get(boundSql);
             BoundSql subBoundSql = new BoundSql(ms.getConfiguration(), sql, boundSql.getParameterMappings(), parameterObject);
+            for (String key : additionalParameters.keySet()) {
+                subBoundSql.setAdditionalParameter(key, additionalParameters.get(key));
+            }
             CacheKey key = executor.createCacheKey(ms, parameterObject, RowBounds.DEFAULT, boundSql);
             key.update(timeRange.getTableSuffix());
             Object ret = executor.query(ms,parameterObject,RowBounds.DEFAULT,resultHandler,key,subBoundSql);
@@ -277,12 +301,94 @@ public class TimeShardQueryPlugin implements Interceptor {
                 logger.debug("sharding-support end execute sql:{}", sql);
             }
             return ret;
-        }catch (SQLException e) {
+        }catch (Exception e) {
             logger.error("handleCountQuery timeRange:{}", timeRange, e);
             throw new ExecuteShardingSqlException("handleCountQuery timeRange:"+timeRange, e);
         }
     }
 
+    private Object cloneParameterObject(Object paramObject) {
+        if(paramObject instanceof MapperMethod.ParamMap) {
+            MapperMethod.ParamMap<Object> target = new MapperMethod.ParamMap<>();
+            MapperMethod.ParamMap<Object> source = (MapperMethod.ParamMap<Object>) paramObject;
+            for(MapperMethod.ParamMap.Entry<String, Object> entry :  source.entrySet()) {
+                target.put(entry.getKey(), entry.getValue());
+            }
+            return target;
+        }
+        if(paramObject instanceof HashMap) {
+            HashMap<String, Object> target = new HashMap<>();
+            HashMap<String, Object> source = (HashMap<String, Object>) paramObject;
+            for(HashMap.Entry<String, Object> entry :  source.entrySet()) {
+                target.put(entry.getKey(), entry.getValue());
+            }
+            return target;
+        }
+        try {
+            Object newObj = paramObject.getClass().newInstance();
+            BeanUtils.copyProperties(paramObject, newObj);
+            return newObj;
+        }catch (Exception e) {
+            logger.error("BeanUtils.copyProperties error", e);
+        }
+        return paramObject;
+    }
+
+    private void rewriteParameterObject(Object parameterObject, TimeShardQuery timeShardQuery, TimeRange timeRange) {
+        if(parameterObject instanceof Map) {
+            rewriteParameterObject((Map<String, Object>)parameterObject, TimeShardingContextHolder.getTimeShardQuery(), timeRange);
+            return;
+        }
+        String startTimeKey = timeShardQuery.startTime().substring(1);
+        String endTimeKey = timeShardQuery.endTime().substring(1);
+        startTimeKey = startTimeKey.substring(startTimeKey.indexOf('.') + 1);
+        endTimeKey = endTimeKey.substring(endTimeKey.indexOf('.') + 1);
+        ReflectionUtils.setFieldValue(parameterObject, startTimeKey, getTime(timeRange.getStartTime()));
+        ReflectionUtils.setFieldValue(parameterObject, endTimeKey, getTime(timeRange.getEndTime()));
+    }
+
+    private void rewriteParameterObject(Map<String, Object> parameterObject, TimeShardQuery timeShardQuery, TimeRange timeRange) {
+        String startTimeEL = timeShardQuery.startTime().substring(1);
+        String endTimeEL = timeShardQuery.endTime().substring(1);
+        String startTimeKey = startTimeEL;
+        String endTimeKey = endTimeEL;
+
+        if(startTimeEL.indexOf('.') > -1 ){
+            String key = startTimeEL.substring(0, startTimeEL.indexOf('.'));
+            startTimeKey = startTimeEL.substring(startTimeEL.indexOf('.') + 1);
+            endTimeKey = endTimeEL.substring(endTimeEL.indexOf('.') + 1);
+            if(parameterObject.containsKey(key)){
+                Object obj = parameterObject.get(key);
+                ReflectionUtils.setFieldValue(obj, startTimeKey, getTime(timeRange.getStartTime()));
+                ReflectionUtils.setFieldValue(obj, endTimeKey, getTime(timeRange.getEndTime()));
+            }
+        }else if(startTimeEL.indexOf('[') > -1 ){
+            String key = startTimeEL.substring(0, startTimeEL.indexOf('['));
+            startTimeKey = startTimeEL.substring(startTimeEL.indexOf('[')+1, startTimeEL.indexOf(']'));
+            endTimeKey = endTimeEL.substring(endTimeEL.indexOf('[')+1, endTimeEL.indexOf(']'));
+            if(parameterObject.containsKey(key) && parameterObject.get(key) instanceof Map){
+                Map<String, Object> map = (Map<String, Object>) parameterObject.get(key);
+                putToMapIfExists(map, startTimeKey, timeRange.getStartTime());
+                putToMapIfExists(map, endTimeKey, timeRange.getEndTime());
+            }
+        }
+        putToMapIfExists(parameterObject, startTimeKey, timeRange.getStartTime());
+        putToMapIfExists(parameterObject, endTimeKey, timeRange.getEndTime());
+    }
+
+    private void putToMapIfExists(Map<String, Object> map, String key, TimeWrapper timeWrapper) {
+        if (map.containsKey(key)) {
+            map.put(key, getTime(timeWrapper));
+        }
+    }
+
+    private Object getTime(TimeWrapper timeWrapper) {
+        if(DateType.DATE_STRING==timeWrapper.getDateType()) {
+            return timeWrapper.getDateStr();
+        }else {
+            return timeWrapper.getDate();
+        }
+    }
 
     private boolean isCount(String cacheKey) {
         return cacheKey.endsWith("_Count");
@@ -303,21 +409,22 @@ public class TimeShardQueryPlugin implements Interceptor {
             for(String tableName : tableNames) {
                 if (sql.toUpperCase().contains(" " + tableName.toUpperCase() + " ")) {
                     String newTableName = tableName + timeRange.getTableSuffix();
-                    sql =replaceAll(sql, " " + tableName +" ", " " + newTableName +" ");
+                    sql = replaceTableName(sql, tableName, newTableName);
                 }
             }
         }
         return sql;
     }
 
-    private String replaceAll(String input,String regex,String replacement){
-        Pattern p = Pattern.compile(regex,Pattern.CASE_INSENSITIVE);
+    private String replaceTableName(String input,String oldTableName,String newTableName){
+        String regex = "[\\s*|\t|\r|\n]"+oldTableName+"[\\s*|\t|\r|\n]";
+        Pattern p = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
         Matcher m = p.matcher(input);
         StringBuffer sb = new StringBuffer();
         boolean result = m.find();
         while (result)
         {
-            m.appendReplacement(sb, replacement);
+            m.appendReplacement(sb, " "+ newTableName+" ");
             result = m.find();
         }
         m.appendTail(sb);

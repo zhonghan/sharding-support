@@ -26,7 +26,9 @@ public class TimeShardingContextHolder {
     public static TimeShardQuery getTimeShardQuery() {
         return threadLocal.get().timeShardQuery;
     }
-
+    public static void setTimeShardQuery(TimeShardQuery timeShardQuery) {
+        threadLocal.set(new TimeRangeQueryContext(timeShardQuery));
+    }
 
     public static void clear() {
         threadLocal.remove();
@@ -46,6 +48,9 @@ public class TimeShardingContextHolder {
             this.timeShardQuery = timeShardQuery;
             this.limit = limit;
             this.isQueryList = isQueryList;
+        }
+        public TimeRangeQueryContext(TimeShardQuery timeShardQuery) {
+            this.timeShardQuery = timeShardQuery;
         }
     }
 }

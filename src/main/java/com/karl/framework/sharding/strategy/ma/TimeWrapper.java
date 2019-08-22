@@ -1,5 +1,7 @@
 package com.karl.framework.sharding.strategy.ma;
 
+import com.karl.framework.sharding.util.DateUtils;
+
 import java.util.Date;
 
 /**
@@ -55,7 +57,7 @@ public class TimeWrapper {
     @Override
     public String toString() {
         return "TimeWrapper{" +
-                "date=" + date +
+                "date=" + DateUtils.format(date) +
                 ", dateStr='" + dateStr + '\'' +
                 ", dateType=" + dateType +
                 '}';

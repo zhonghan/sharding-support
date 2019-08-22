@@ -7,7 +7,7 @@
     <bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource"
           destroy-method="close">
         <!-- 数据库基本信息配置 -->
-        <property name="url" value="jdbc:mysql://192.168.5.89:3306/oms?useUnicode=true&amp;characterEncoding=UTF-8&amp;useSSL=false"/>
+        <property name="url" value="jdbc:mysql://192.168.4.217:3306/oms?useUnicode=true&amp;characterEncoding=UTF-8&amp;useSSL=false"/>
         <property name="username" value="oms"/>
         <property name="password" value="oms"/>
         <property name="driverClassName" value="com.mysql.jdbc.Driver"/>
